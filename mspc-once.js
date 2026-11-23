@@ -37,13 +37,13 @@ const runPublisher = require('./publisher.js');
 const scripts = [
 
   
+  { name: 'Outfit Follower', fn: runOutfitFollower, alwaysRun: true },
   { name: 'Publisher', fn: runPublisher, alwaysRun: true },
-  //{ name: 'Outfit Follower', fn: runOutfitFollower, alwaysRun: true },
-  //{ name: 'Burn Energy-Before', fn: runBurnEnergy, alwaysRun: true },
-  //{ name: 'Battle Pass Chests', fn: runBattlePassChests, alwaysRun: true },
-  //{ name: 'Burn Energy-After', fn: runBurnEnergy, alwaysRun: true },
-  //{ name: 'New Account', fn: runNewAccount, alwaysRun: true },
-  //{ name: 'Account Info', fn: runAccountInfo, alwaysRun: true },
+  { name: 'Burn Energy-Before', fn: runBurnEnergy, alwaysRun: true },
+  { name: 'Battle Pass Chests', fn: runBattlePassChests, alwaysRun: true },
+  { name: 'Burn Energy-After', fn: runBurnEnergy, alwaysRun: true },
+  { name: 'New Account', fn: runNewAccount, alwaysRun: true },
+  { name: 'Account Info', fn: runAccountInfo, alwaysRun: true },
 
 
   
