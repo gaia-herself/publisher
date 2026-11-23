@@ -32,10 +32,13 @@ const runBattlePassChests = require('./battlepass-chests.js');
 const runNewAccount = require('./new-account.js');
 const runAccountInfo = require('./account-info.js');
 const runOutfitFollower = require('./outfit-follower.js'); //reverting back
+const runPublisher = require('./publisher.js');
 
 const scripts = [
 
-  { name: 'Outfit Follower', fn: runOutfitFollower, alwaysRun: true },
+  
+  { name: 'Publisher', fn: runPublisher, alwaysRun: true },
+  //{ name: 'Outfit Follower', fn: runOutfitFollower, alwaysRun: true },
   //{ name: 'Burn Energy-Before', fn: runBurnEnergy, alwaysRun: true },
   //{ name: 'Battle Pass Chests', fn: runBattlePassChests, alwaysRun: true },
   //{ name: 'Burn Energy-After', fn: runBurnEnergy, alwaysRun: true },
