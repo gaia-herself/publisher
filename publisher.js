@@ -204,10 +204,12 @@ module.exports = async function runPublisher(page) {
     w.kind = kind; out.worn.push(w);
     console.log(`👗 layer ${w.layer}: item ${w.itemId} ${w.name} colour ${w.colour} | store ${w.storeId} event ${w.eventId} | ${kind}`);
   }
-  out.dressUp = out.worn.length > 0 && !out.worn.some(w => w.eventId);
-  out.reason = out.worn.length === 0 ? 'no worn items read'
-    : out.dressUp ? 'no event items, so this is a themed look' : 'an event item is worn, so stay in default';
-  console.log(`🎯 Dress up today: ${out.dressUp ? 'YES' : 'NO'} (${out.reason})`);
+  // NEW RULE: any look that was read is offered to the followers. Each follower copies it only if it owns every piece
+  // (event items included), so a look nobody can complete is simply ignored.
+  out.dressUp = out.worn.length > 0;
+  out.reason = out.worn.length === 0 ? 'no worn items read' : 'look read; followers copy it only if they own every piece';
+  const eventCount = out.worn.filter(w => w.eventId).length;
+  console.log(`🎯 Dress up offered: ${out.dressUp ? 'YES' : 'NO'} (${out.reason}) | ${out.worn.length} pieces, ${eventCount} of them event items`);
 
   // 5) build the record and send it (only if everything read cleanly)
   const record = {
