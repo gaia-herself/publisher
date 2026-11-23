@@ -88,21 +88,6 @@ async function collectionListing(page, href) {
   return { items, itemsCount: o.itemsCount, pageType: o.collectionsPage };
 }
 
-const mallCache = {};
-async function mallLookup(page, categoryId, itemId) {
-  if (!mallCache[categoryId]) {
-    mallCache[categoryId] = grab(await getText(page,
-      `/mall/mall.php?action=loadMallContent&mallType=1&nextLevelItems=false&categoryId=${categoryId}`), 'setMallOptions(', '{', '}');
-  }
-  const o = mallCache[categoryId];
-  if (!o) return { found: false, reason: 'mall data not found for this category' };
-  for (const [pageNum, items] of Object.entries(o.pagination.itemsOnPages || {})) {
-    const it = items.find(x => Number(x.id) === itemId);
-    if (it) return { found: true, pageNum: Number(pageNum), storeId: it.store_id, minLevel: it.min_level, price: it.price, currency: it.currency };
-  }
-  return { found: false, reason: 'not in the mall listing' };
-}
-
 async function boardCall(payload) {
   let lastErr;
   for (let attempt = 1; attempt <= 3; attempt++) {
@@ -187,7 +172,11 @@ module.exports = async function runPublisher(page) {
     out.collections.push(c);
   }
 
-  // 4) sort the worn items and decide
+  // 4) label the worn items
+  //    event item        -> 'event'
+  //    active collection -> 'live-collection' / 'flashback-collection'
+  //    anything else     -> 'mall' (every item comes from the mall, a collection or an event;
+  //                         followers look for it in their own mall listing and skip it if it is not there)
   out.worn = [];
   for (const w of worn) {
     let kind;
@@ -195,16 +184,12 @@ module.exports = async function runPublisher(page) {
     else {
       const t = tiles.find(x => x.id === w.storeId);
       if (t) kind = t.flashback ? 'flashback-collection' : 'live-collection';
-      else {
-        let mall; try { mall = await mallLookup(page, w.category, w.itemId); } catch (e) { mall = { found: false }; }
-        kind = mall.found ? 'mall' : 'starter';
-        await sleep(300);
-      }
+      else kind = 'mall';
     }
     w.kind = kind; out.worn.push(w);
     console.log(`👗 layer ${w.layer}: item ${w.itemId} ${w.name} colour ${w.colour} | store ${w.storeId} event ${w.eventId} | ${kind}`);
   }
-  // NEW RULE: any look that was read is offered to the followers. Each follower copies it only if it owns every piece
+  // Any look that was read is offered to the followers. Each follower copies it only if it owns every piece
   // (event items included), so a look nobody can complete is simply ignored.
   out.dressUp = out.worn.length > 0;
   out.reason = out.worn.length === 0 ? 'no worn items read' : 'look read; followers copy it only if they own every piece';
