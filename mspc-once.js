@@ -33,6 +33,7 @@ const runNewAccount = require('./new-account.js');
 const runAccountInfo = require('./account-info.js');
 const runOutfitFollower = require('./outfit-follower.js'); //reverting back
 const runPublisher = require('./publisher.js');
+const runTeleportLive = require('./tele-live.js');
 
 const scripts = [
 
@@ -45,6 +46,7 @@ const scripts = [
   { name: 'New Account', fn: runNewAccount, alwaysRun: true },
   //{ name: 'Furniture Script', fn: runFurnitureScript, alwaysRun: true },
   { name: 'Teleport Activation', fn: runTeleport, alwaysRun: true },
+  { name: 'Teleport Live', fn: runTeleportLive, alwaysRun: true },
   { name: 'Account Info', fn: runAccountInfo, alwaysRun: true },
 
 
