@@ -2,8 +2,9 @@
 // MORNING (server time before noon): every account switches to its own saved F1/F2/F3 outfit.
 // EVENING (noon to midnight): follower accounts (never main) copy main's look from the board,
 // only if the record is for today, says "dress up", and the account owns every piece (event items included).
-// MAKEUP: copied too, but only if the clothes check passed AND every makeup item (hair included) is already
-// available to this account in the beauty salon (no purchases ever). Otherwise the account keeps its own makeup.
+// MAKEUP: copied too (through the beauty salon save), but only if the clothes check passed AND every makeup item
+// (hair included) is already available to this account in the salon (no purchases ever).
+// Otherwise the account keeps its own makeup.
 // OUTFIT_DRY_RUN=1 logs what it WOULD do without changing anything.
 // Console output: one line on success; the full log only when something is not a clean success.
 
@@ -13,6 +14,7 @@ const EVENING_FROM_HOUR = 12;
 const DRY_RUN = process.env.OUTFIT_DRY_RUN === '1';
 const MAIN_LADY_ID = String(process.env.MAIN_LADY_ID || '8859158');
 const SALON = '/ajax/beauty_salon_lady.php';
+const MAX_WARDROBE_PAGES = 100;   // pages per wardrobe category (about 18 items per page)
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -213,7 +215,7 @@ async function checkMakeup(page, wanted, current) {
 async function ownedRows(page, cat) {
   const re = /\$\('#item-(\d+)'\)\.data\('item',\s*(\{[^\n]*?\})\);/g;
   const map = {};
-  for (let p = 1; p <= 10; p++) {
+  for (let p = 1; p <= MAX_WARDROBE_PAGES; p++) {
     const j = await postBody(page, '/ajax/wardrobe.php',
       `wardrobetype=lady&category_id%5B%5D=${cat}&archive=0&pet=0&page=${p}&currentPageNum=${p}&updatePartials%5B%5D=10&updatePartials%5B%5D=3`);
     const html = j && j.partials && j.partials.partial3;
@@ -265,8 +267,7 @@ async function dressFromBoard(page, clock) {
   if (!mine.appearance) { log('⚠️ Could not read this account\'s own makeup. Staying in the default outfit.'); return null; }
   const myEntries = appearanceEntries(mine.appearance);
 
-  // makeup: copy main's only if every item is available here; otherwise keep this account's own
-  let entriesToSend = myEntries;
+  // ---- makeup: decide whether main's makeup can be copied (every item already available, nothing bought)
   let copyMakeup = false;
   let makeupNote;
   const wanted = Array.isArray(rec.appearance) ? rec.appearance.map(d => {
@@ -274,9 +275,13 @@ async function dressFromBoard(page, clock) {
     if (d.size !== undefined && d.size !== null) e.size = Number(d.size);
     return e;
   }) : [];
+  const makeupAlreadyOn = wanted.length > 0 && keysOf(wanted) === keysOf(myEntries);
   if (wanted.length === 0) {
     log('💄 The record has no makeup. Keeping this account\'s own makeup.');
     makeupNote = 'makeup kept (none published)';
+  } else if (makeupAlreadyOn) {
+    log('💄 The makeup is already main\'s.');
+    makeupNote = 'makeup already main\'s';
   } else {
     let problems;
     try { problems = await checkMakeup(page, wanted, myEntries); }
@@ -285,21 +290,36 @@ async function dressFromBoard(page, clock) {
       log(`💄 Makeup not copied, keeping its own. Problems: ${problems.join('; ')}`);
       makeupNote = `makeup kept (${problems.join('; ')})`;
     } else {
-      entriesToSend = wanted;
       copyMakeup = true;
-      log(`💄 Every makeup item is available (${wanted.length} entries). Copying main's makeup.`);
+      log(`💄 Every makeup item is available (${wanted.length} entries). Main's makeup will be copied through the salon.`);
       makeupNote = 'makeup copied';
     }
   }
 
+  // ---- 1) clothes (the game's look save ignores makeup changes, so this keeps the account's own makeup)
   const items = rows.map((r, i) => `items%5B${i}%5D%5Bid%5D=${r.id}&items%5B${i}%5D%5Boffset%5D=${r.layer}`).join('&');
-  const body = `action=saveChanges&selectedPet=&${items}&${makeupBody(entriesToSend)}`;
-  if (DRY_RUN) { log(`🧪 DRY RUN: the account owns every piece. Would save the look now (${makeupNote}). Nothing changed.`); return null; }
+  const body = `action=saveChanges&selectedPet=&${items}&${makeupBody(myEntries)}`;
+  if (DRY_RUN) { log(`🧪 DRY RUN: the account owns every piece. Would save the clothes now, then: ${makeupNote}. Nothing changed.`); return null; }
 
   const r = await postBody(page, '/ajax/wardrobe/lady.php', body);
   const noChange = r && r.status === 0 && /no changes made/i.test(String(r.message || ''));
-  if (noChange) log('ℹ️ The game says "No changes made", so the look is already on.');
+  if (noChange) log('ℹ️ The game says "No changes made", so the clothes are already on.');
   else if (!r || r.status !== 1) throw new Error(`saveChanges failed: ${JSON.stringify(r).slice(0, 300)}`);
+
+  // ---- 2) makeup, through the beauty salon save
+  if (copyMakeup) {
+    await sleep(800);
+    const s = await postBody(page, SALON, `type=save&${makeupBody(wanted)}`, SALON_HEADERS);
+    if (!s || s.status !== 1) {
+      log(`⚠️ The salon did not accept the makeup: ${JSON.stringify(s).slice(0, 300)}`);
+      makeupNote = 'makeup kept (the salon save failed)';
+      copyMakeup = false;
+    } else {
+      log('💄 Salon save accepted.');
+    }
+  }
+
+  // ---- 3) read everything back and confirm
   const after = await readLook(page);
   const want = look.map(l => `${l.itemId}:${l.colour}`).sort().join(',');
   const got = after.worn.map(w => `${w.itemId}:${w.colour}`).sort().join(',');
@@ -310,7 +330,7 @@ async function dressFromBoard(page, clock) {
   if (copyMakeup) {
     const gotMakeup = after.appearance ? keysOf(appearanceEntries(after.appearance)) : '';
     if (gotMakeup !== keysOf(wanted)) {
-      log(`⚠️ Clothes are on, but the makeup now differs from main's. Wanted ${keysOf(wanted)}, got ${gotMakeup}.`);
+      log(`⚠️ Clothes are on, but the makeup differs from main's after the salon save. Wanted ${keysOf(wanted)}, got ${gotMakeup}.`);
       return null;
     }
   }
