@@ -201,7 +201,8 @@ async function checkMakeup(page, wanted, current) {
     const it = cache[d.type].find(x => Number(x.type) === d.type && Number(x.num) === d.num);
     if (!it) problems.push(`type ${d.type} item ${d.num} is not in the salon list`);
     else if (Number(it.unlocked) !== 1) problems.push(`type ${d.type} item ${d.num} is not owned`);
-    else if (Array.isArray(it.colors) && it.colors.length > 0 && !it.colors.map(Number).includes(d.color)) {
+    // colour check only for items with a real choice of colours (body and nose have a single entry in their list)
+    else if (Array.isArray(it.colors) && it.colors.length > 1 && !it.colors.map(Number).includes(d.color)) {
       problems.push(`type ${d.type} item ${d.num} colour ${d.color} is not available`);
     }
   }
@@ -282,7 +283,7 @@ async function dressFromBoard(page, clock) {
     catch (e) { problems = [`could not check the salon (${e.message})`]; }
     if (problems.length) {
       log(`💄 Makeup not copied, keeping its own. Problems: ${problems.join('; ')}`);
-      makeupNote = `makeup kept (${problems.length} item(s) unavailable)`;
+      makeupNote = `makeup kept (${problems.join('; ')})`;
     } else {
       entriesToSend = wanted;
       copyMakeup = true;
