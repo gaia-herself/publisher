@@ -38,6 +38,20 @@ function grab(text, marker, open, close) {
   }
   return null;
 }
+// like grab, but starts at a position and also tells where the value ended
+function parseAfter(text, from, open, close) {
+  const b = text.indexOf(open, from);
+  if (b === -1) return null;
+  let depth = 0, inStr = false, esc = false;
+  for (let i = b; i < text.length; i++) {
+    const c = text[i];
+    if (inStr) { if (esc) esc = false; else if (c === '\\') esc = true; else if (c === '"') inStr = false; continue; }
+    if (c === '"') inStr = true;
+    else if (c === open) depth++;
+    else if (c === close) { depth--; if (depth === 0) return { value: JSON.parse(text.slice(b, i + 1)), end: i + 1 }; }
+  }
+  return null;
+}
 
 async function readHeader(page, html) {
   return page.evaluate((h) => {
@@ -136,19 +150,39 @@ module.exports = async function runPublisher(page) {
     return;
   }
 
-  // 2) what main is wearing
+  // 2) what main is wearing (clothes) and main's makeup / appearance
   let worn = [];
+  let appearance = null;
   try {
     const j = await postJson(page, '/ajax/wardrobe.php',
       'wardrobetype=lady&category_id%5B%5D=9&archive=0&pet=0&updatePartials%5B%5D=8');
-    const arr = grab((j.partials && j.partials.partial8) || '', 'initModelImages(', '[', ']');
-    if (!arr) throw new Error('worn items not found');
-    worn = arr.map(x => ({
+    const p8 = (j.partials && j.partials.partial8) || '';
+    const start = p8.indexOf('initModelImages(');
+    const clothes = start === -1 ? null : parseAfter(p8, start, '[', ']');
+    if (!clothes) throw new Error('worn items not found');
+    worn = clothes.value.map(x => ({
       itemId: Number(x.id), name: x.name, category: Number(x.type),
       colour: Number(x.additional && x.additional.color), layer: x.additional ? x.additional.offset : null,
       storeId: x.store_id ? Number(x.store_id) : null, eventId: x.event_id ? Number(x.event_id) : null,
       price: Number(x.price), currency: Number(x.currency), minLevel: Number(x.min_level)
     }));
+
+    // makeup: the object right after the clothes list. If it cannot be read, the clothes are still published
+    // and followers simply keep their own makeup.
+    try {
+      const app = parseAfter(p8, clothes.end, '{', '}');
+      if (!app) throw new Error('not found');
+      const list = Object.values(app.value).map(o => o && o.data).filter(Boolean).map(d => {
+        const e = { type: Number(d.type), num: Number(d.num), color: Number(d.color) };
+        if (d.size !== undefined) e.size = Number(d.size);
+        return e;
+      });
+      if (list.length === 0) throw new Error('empty');
+      appearance = list;
+      console.log(`💄 Makeup read: ${list.length} entries (${list.map(e => `${e.type}:${e.num}/c${e.color}`).join(', ')})`);
+    } catch (e) {
+      console.log(`⚠️ Makeup could not be read (${e.message}). Followers will keep their own makeup.`);
+    }
   } catch (e) { fail('worn items', e); }
 
   // 3) owned items per active collection, checked against the header counter
@@ -202,6 +236,7 @@ module.exports = async function runPublisher(page) {
     dressUp: out.dressUp, reason: out.reason,
     look: out.worn.map(w => ({ itemId: w.itemId, category: w.category, colour: w.colour, layer: w.layer,
       kind: w.kind, storeId: w.storeId, price: w.price, currency: w.currency, minLevel: w.minLevel })),
+    appearance: appearance,   // main's makeup (null if it could not be read)
     collections: out.collections.map(c => ({ id: c.id, name: c.name, kind: c.kind, hoursLeft: c.hoursLeft, owned: c.owned }))
   };
   const clean = out.errors.length === 0 && out.worn.length > 0 && out.collections.every(c => c.checksumOk);
@@ -220,7 +255,7 @@ module.exports = async function runPublisher(page) {
     const back = await boardCall({ action: 'read' });
     const r = back.record;
     if (r && r.gameDate === record.gameDate && r.savedAt === saved.savedAt && r.look.length === record.look.length) {
-      console.log(`✅ Read back from the board: ${r.gameDate}, ${r.look.length} worn items, ${r.collections.length} collection(s). It arrived correctly.`);
+      console.log(`✅ Read back from the board: ${r.gameDate}, ${r.look.length} worn items, ${r.collections.length} collection(s), makeup ${r.appearance ? r.appearance.length + ' entries' : 'not included'}. It arrived correctly.`);
     } else {
       throw new Error('the board returned something different from what was sent');
     }
