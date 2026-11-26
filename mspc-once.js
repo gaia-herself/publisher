@@ -47,6 +47,10 @@ const scripts = [
   { name: 'Furniture Script', fn: runFurnitureScript, alwaysRun: true },
   { name: 'Teleport Activation', fn: runTeleport, alwaysRun: true },
   { name: 'Teleport Live', fn: runTeleportLive, alwaysRun: true },
+  { name: 'Boyfriend Kiss', fn: runBoyfriendKiss, alwaysRun: true },
+  { name: 'Guild Attack', fn: runGuildAttack, alwaysRun: true },
+  { name: 'Guild Show', fn: runGuildShow, alwaysRun: true },
+  { name: 'Daily Tasks', fn: runDailyTasks, alwaysRun: true },
   { name: 'Account Info', fn: runAccountInfo, alwaysRun: true },
 
 
@@ -67,12 +71,9 @@ const scripts = [
 
   { name: 'Memory Event', fn: runMemoryEvent, envKey: 'LP_MEMORY_URL' },
 
-  { name: 'Daily Tasks', fn: runDailyTasks, alwaysRun: true },
+  
 
-  { name: 'Boyfriend Kiss', fn: runBoyfriendKiss, alwaysRun: true },
-  { name: 'Guild Attack', fn: runGuildAttack, alwaysRun: true },
-
-  { name: 'Guild Show', fn: runGuildShow, alwaysRun: true },
+  
 
   { name: 'Pet Training', fn: runPetTraining, alwaysRun: false },
 
