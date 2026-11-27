@@ -30,6 +30,7 @@ const runAccountInfo = require('./account-info.js');
 const runTeleportLive = require('./tele-live.js');
 const runMemoryLive = require('./memory-live.js');
 const runMemoryActivation = require('./memory-activation.js');
+const runPublisher = require('./publisher.js');
 
 
 
@@ -99,6 +100,7 @@ const scripts = [
   { name: 'Gifts Flashback', fn: runGifts, alwaysRun: false },
   { name: 'Battle Pass Chests', fn: runBattlePassChests, alwaysRun: false }, //opens chests
   { name: 'New Account', fn: runNewAccount, alwaysRun: false }, */
+  { name: 'Publisher', fn: runPublisher, alwaysRun: true },
   { name: 'Account Info', fn: runAccountInfo, alwaysRun: true },
 
 ];
