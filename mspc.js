@@ -47,6 +47,13 @@ const runMemoryActivation = require('./memory-activation.js');
 // Ticket reserve:
 //   Phase 1 uses whatever the workflow gives (95).
 //   Phase 2 uses 0, so all tickets are spent.
+//
+// skipWhenExtra:
+//   A common-list entry marked skipWhenExtra: true is SKIPPED when
+//   Phase 2 is active (RUN_EXTRA = true), because the same script
+//   runs in Phase 2 anyway. Burn Energy uses this so Phase 1 does
+//   not use up the blue energy before Phase 2 can spend tickets.
+//   When Phase 2 is not active, the entry runs normally.
 
 const RUN_EXTRA =
   String(process.env.RUN_EXTRA || 'false').toLowerCase() === 'true';
@@ -72,7 +79,7 @@ function setTicketReserve(value) {
 
 const scripts = [
 
-  { name: 'Burn Energy', fn: runBurnEnergy, alwaysRun: true },
+  { name: 'Burn Energy', fn: runBurnEnergy, alwaysRun: true, skipWhenExtra: true },
   { name: 'Claim Duel Rewards', fn: runClaimRewards, alwaysRun: true },
 
   /*{ name: 'Fashion Magazine', fn: runFashionMagazine, envKey: 'LP_FASHION_MAGAZINE_URL' },
@@ -286,9 +293,9 @@ async function collectDailyReward(page) {
 // 🧩 RUN A LIST OF SCRIPTS
 // ================================================================
 //
-// Same loop as before. The only change is that it now receives
-// the list to run (common list or extra list) instead of always
-// using the common one.
+// Same loop as before. It receives the list to run (common list
+// or extra list). An entry with skipWhenExtra: true is skipped
+// when Phase 2 is active.
 
 async function runAllScripts(page, list) {
 
@@ -307,6 +314,18 @@ async function runAllScripts(page, list) {
 
       console.log(
         `⏭️ ${script.name} skipped (not active or URL = OFF)`
+      );
+
+      continue;
+
+    }
+
+
+
+    if (script.skipWhenExtra && RUN_EXTRA) {
+
+      console.log(
+        `⏭️ ${script.name} skipped (extra phase is active, it runs there)`
       );
 
       continue;
