@@ -25,7 +25,7 @@ const runDuelFP = require('./duel-fp.js');
 const runClaimRewards = require('./claim-BPrewards.js');
 const runGuildAttack = require('./guild-attack.js');
 const runBattlePassChests = require('./battlepass-chests.js');
-const runNewAccount = require('./new-account.js');
+const runStatsAndAchievements = require('./stats-and-achievements.js');
 const runAccountInfo = require('./account-info.js');
 const runTeleportLive = require('./tele-live.js');
 const runMemoryLive = require('./memory-live.js');
@@ -88,7 +88,7 @@ const scripts = [
   { name: 'Memory Live', fn: runMemoryLive, alwaysRun: true },
   { name: 'Memory Flashback', fn: runMemoryActivation, alwaysRun: true },
   { name: 'Furniture Script', fn: runFurnitureScript, alwaysRun: true },
-  { name: 'Raise stats', fn: runDuelFP, alwaysRun: true }, //raises stats if +200
+  { name: 'Stats and Achievements', fn: runStatsAndAchievements, alwaysRun: true },
 
   /*{ name: 'Fashion Magazine', fn: runFashionMagazine, envKey: 'LP_FASHION_MAGAZINE_URL' },
   { name: 'Maps Event', fn: runMapsEvent, envKey: 'LP_MAPS_URL' },
