@@ -101,7 +101,7 @@ const scripts = [
   { name: 'Battle Pass Chests', fn: runBattlePassChests, alwaysRun: false }, //opens chests
   { name: 'New Account', fn: runNewAccount, alwaysRun: false }, */
   { name: 'Publisher', fn: runPublisher, alwaysRun: true },
-  { name: 'Account Info', fn: runAccountInfo, alwaysRun: true },
+  { name: 'Account Info', fn: runAccountInfo, alwaysRun: true, skipWhenExtra: true },
 
 ];
 
