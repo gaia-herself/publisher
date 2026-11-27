@@ -9,11 +9,8 @@ const DIVIDER = '─────────────────────
 
 const runBurnEnergy = require('./burn-energy.js');
 const runFashionMagazine = require('./fashion-magazine.js');
-const runTeleportEvent = require('./tele.js');
-const runSolitaireEvent = require('./solitaire.js');
 const runMapsEvent = require('./maps.js');
 const runSlotsEvent = require('./Slots.js');
-const runMemoryEvent = require('./memory.js');
 const runFurnitureScript = require('./furniture.js');
 const runDailyTasks = require('./daily-tasks.js');
 const runBoyfriendKiss = require('./bfk.js');
