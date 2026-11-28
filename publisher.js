@@ -53,6 +53,34 @@ function parseAfter(text, from, open, close) {
   return null;
 }
 
+// NEW: reads the names of every event and collection from the wardrobe filter panel (one request).
+// Returns { events: {id: name}, collections: {id: name} }
+function namesBetween(html, startMarker, endMarker) {
+  const out = {};
+  const s = html.indexOf(startMarker);
+  if (s === -1) return out;
+  const e = html.indexOf(endMarker, s);
+  const seg = html.slice(s, e === -1 ? html.length : e);
+  const re = /\{"id":"?(\d+)"?,"text":"((?:[^"\\]|\\.)*)"/g;
+  let m;
+  while ((m = re.exec(seg))) {
+    let name = m[2];
+    try { name = JSON.parse('"' + name.replace(/\\'/g, "'") + '"'); } catch (err) { /* keep as is */ }
+    out[m[1]] = name;
+  }
+  return out;
+}
+async function readNames(page) {
+  const j = await postJson(page, '/ajax/wardrobe.php',
+    'wardrobetype=lady&archive=0&empty_filter=1&updatePartials%5B%5D=9&updatePartials%5B%5D=3');
+  const p9 = j && j.partials && j.partials.partial9;
+  if (!p9) throw new Error('filter panel not found');
+  return {
+    events: namesBetween(p9, 'function getEventItems', 'function renderEventsList'),
+    collections: namesBetween(p9, 'function getItems', 'function renderCollectionsList')
+  };
+}
+
 async function readHeader(page, html) {
   return page.evaluate((h) => {
     const doc = new DOMParser().parseFromString(h, 'text/html');
@@ -150,6 +178,15 @@ module.exports = async function runPublisher(page) {
     return;
   }
 
+  // NEW: names of events and collections (a failure here only leaves the names blank, it never stops the publish)
+  let names = { events: {}, collections: {} };
+  try {
+    names = await readNames(page);
+    console.log(`🏷️ Names read: ${Object.keys(names.events).length} events, ${Object.keys(names.collections).length} collections`);
+  } catch (e) {
+    console.log(`⚠️ Could not read event/collection names (${e.message}). They will be blank on the board.`);
+  }
+
   // 2) what main is wearing (clothes) and main's makeup / appearance
   let worn = [];
   let appearance = null;
@@ -164,7 +201,9 @@ module.exports = async function runPublisher(page) {
       itemId: Number(x.id), name: x.name, category: Number(x.type),
       colour: Number(x.additional && x.additional.color), layer: x.additional ? x.additional.offset : null,
       storeId: x.store_id ? Number(x.store_id) : null, eventId: x.event_id ? Number(x.event_id) : null,
-      price: Number(x.price), currency: Number(x.currency), minLevel: Number(x.min_level)
+      price: Number(x.price), currency: Number(x.currency), minLevel: Number(x.min_level),
+      num: x.num !== undefined ? Number(x.num) : null,      // NEW
+      thumb: x.thumb || null                                // NEW
     }));
 
     // makeup: the object right after the clothes list. If it cannot be read, the clothes are still published
@@ -220,8 +259,13 @@ module.exports = async function runPublisher(page) {
       if (t) kind = t.flashback ? 'flashback-collection' : 'live-collection';
       else kind = 'mall';
     }
-    w.kind = kind; out.worn.push(w);
-    console.log(`👗 layer ${w.layer}: item ${w.itemId} ${w.name} colour ${w.colour} | store ${w.storeId} event ${w.eventId} | ${kind}`);
+    w.kind = kind;
+    // NEW: readable names for the board (fall back to the active collection's own name)
+    w.eventName = w.eventId ? (names.events[String(w.eventId)] || null) : null;
+    const tileHit = tiles.find(x => x.id === w.storeId);
+    w.storeName = w.storeId ? (names.collections[String(w.storeId)] || (tileHit ? tileHit.name : null)) : null;
+    out.worn.push(w);
+    console.log(`👗 layer ${w.layer}: item ${w.itemId} ${w.name} colour ${w.colour} | store ${w.storeId} event ${w.eventId} | ${kind} | ${w.eventName || w.storeName || '-'}`);
   }
   // Any look that was read is offered to the followers. Each follower copies it only if it owns every piece
   // (event items included), so a look nobody can complete is simply ignored.
@@ -235,7 +279,8 @@ module.exports = async function runPublisher(page) {
     version: 1, gameDate: out.gameDate, gameTime: out.gameTime,
     dressUp: out.dressUp, reason: out.reason,
     look: out.worn.map(w => ({ itemId: w.itemId, category: w.category, colour: w.colour, layer: w.layer,
-      kind: w.kind, storeId: w.storeId, price: w.price, currency: w.currency, minLevel: w.minLevel })),
+      kind: w.kind, storeId: w.storeId, price: w.price, currency: w.currency, minLevel: w.minLevel,
+      num: w.num, thumb: w.thumb, eventId: w.eventId, eventName: w.eventName, storeName: w.storeName })),   // NEW: last 5 fields
     appearance: appearance,   // main's makeup (null if it could not be read)
     collections: out.collections.map(c => ({ id: c.id, name: c.name, kind: c.kind, hoursLeft: c.hoursLeft, owned: c.owned }))
   };
